@@ -22,4 +22,4 @@ RUN mkdir -p data chroma_db
 EXPOSE 8000
 
 # Command to run the application
-CMD ["python", "-m", "api.index"] 
+CMD ["python", "api/index.py"] 
