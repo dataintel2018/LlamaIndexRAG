@@ -16,7 +16,8 @@ print("="*50)
 app = FastAPI()
 
 # Constants
-MAX_FILE_SIZE = 100 * 1024 * 1024  # 100 MB in bytes
+#MAX_FILE_SIZE = 100 * 1024 * 1024  # 100 MB in bytes
+MAX_FILE_SIZE = 1 * 1024 * 1024  # 1 MB in bytes
 
 # Add CORS middleware
 app.add_middleware(
@@ -188,6 +189,28 @@ def handle_embedding_creation(progress=gr.Progress()):
         print(error_msg)
         return error_msg
 
+def handle_reset():
+    """Reset the system by clearing ChromaDB and deleting uploaded files."""
+    try:
+        # Get all document IDs from ChromaDB
+        all_ids = chatbot.chroma_collection.get()['ids']
+        if all_ids:
+            # Delete all documents if there are any
+            chatbot.chroma_collection.delete(ids=all_ids)
+
+        # Delete all files in the data directory
+        data_dir = "data"
+        for file in os.listdir(data_dir):
+            file_path = os.path.join(data_dir, file)
+            if os.path.isfile(file_path):
+                os.remove(file_path)
+        
+        status_msg = "System reset successful. All documents and embeddings have been cleared."
+        return status_msg, None  # Return None for chatbot to clear it
+    except Exception as e:
+        error_msg = f"Error during reset: {str(e)}"
+        return error_msg, None  # Return None for chatbot to clear it
+
 def create_gradio_interface():
     """Create and configure the Gradio interface."""
     with gr.Blocks(css="""
@@ -237,7 +260,7 @@ def create_gradio_interface():
                         interactive=False,
                         lines=3
                     )
-                    gr.Markdown("*Supported: PDF, TXT, DOC, DOCX, MD files (Max 100MB)*")
+                    gr.Markdown("*Supported: PDF, TXT, DOC, DOCX, MD files (Max 1MB)*")
                     create_embeddings_button = gr.Button("Create Embeddings")
                     embedding_status = gr.Textbox(
                         label="Processing Status",
@@ -245,6 +268,14 @@ def create_gradio_interface():
                         interactive=False,
                         lines=2
                     )
+                    with gr.Row():
+                        reset_button = gr.Button("Reset System", variant="stop")
+                        reset_status = gr.Textbox(
+                            label="Reset Status",
+                            placeholder="Reset status will appear here...",
+                            interactive=False,
+                            lines=1
+                        )
 
             with gr.Column(scale=3):
                 # Chat Interface
@@ -307,6 +338,12 @@ def create_gradio_interface():
             fn=handle_embedding_creation,
             inputs=None,
             outputs=embedding_status
+        )
+        
+        reset_button.click(
+            fn=handle_reset,
+            inputs=None,
+            outputs=[reset_status, chatbot_ui]
         )
         
         submit.click(

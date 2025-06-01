@@ -20,7 +20,7 @@ class ChatResponse(BaseModel):
 class ChatbotInterface:
     _instance = None
     _is_initialized = False
-    MAX_FILE_SIZE = 100 * 1024 * 1024  # 100 MB in bytes
+    MAX_FILE_SIZE = 1 * 1024 * 1024  # 1 MB in bytes
 
     def __new__(cls):
         if cls._instance is None:
