@@ -1,44 +1,25 @@
 FROM python:3.9-slim
-#FROM ollama/ollama:latest
 
-# Install Python and pip
-RUN apt-get update && apt-get install -y \
-    python3 \
-    python3-pip \
-    supervisor \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install curl if it's not already present
-RUN apt-get update && apt-get install -y curl
-
-RUN curl -fsSL https://ollama.com/install.sh | sh
-
-EXPOSE 11434
-
-#RUN ollama serve &
-RUN ollama pull llama3.2
-
-
-# Copy your application
-COPY . /app
 WORKDIR /app
 
-# Install your application dependencies
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    python3-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements first to leverage Docker cache
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Setup supervisord configuration
-COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+# Copy the rest of the application
+COPY . .
 
 # Create necessary directories
-RUN mkdir -p /app/data /app/chroma_db
+RUN mkdir -p data chroma_db
 
-# Set environment variable for local connection
-ENV OLLAMA_HOST=http://localhost:11434
+# Expose the port the app runs on
+EXPOSE 8000
 
-# Expose ports
-EXPOSE 11434 8000
-
-# Start supervisord
 # Command to run the application
 CMD ["python", "api/index.py"] 
