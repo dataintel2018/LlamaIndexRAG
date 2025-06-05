@@ -41,7 +41,8 @@ class ChatbotInterface:
             os.makedirs("data", exist_ok=True)
             
             # Initialize Ollama with host from environment variable
-            ollama_host = os.getenv("OLLAMA_HOST", "http://localhost:11434")
+            #ollama_host = os.getenv("OLLAMA_HOST", "http://localhost:11434")
+            ollama_host = "http://ollama:11434"
             self.llm = Ollama(model="llama3.2", temperature=0.7, base_url=ollama_host)
             print(f"Connecting to Ollama at: {ollama_host}")
             
