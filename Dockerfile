@@ -12,7 +12,8 @@ COPY . /app
 WORKDIR /app
 
 # Install your application dependencies
-RUN pip3 install -r requirements.txt
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Setup supervisord configuration
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
