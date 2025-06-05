@@ -252,7 +252,7 @@ def create_gradio_interface():
                     upload_button = gr.UploadButton(
                         "Upload Files",
                         file_count="multiple",
-                        file_types=[".txt", ".pdf", ".doc", ".docx", ".md"]
+                        file_types=[".txt", ".pdf", ".doc", ".docx", ".md", ".csv"]
                     )
                     status_output = gr.Textbox(
                         label="Upload Status",
@@ -260,7 +260,7 @@ def create_gradio_interface():
                         interactive=False,
                         lines=3
                     )
-                    gr.Markdown("*Supported: PDF, TXT, DOC, DOCX, MD files (Max 1MB)*")
+                    gr.Markdown("*Supported: PDF, TXT, DOC, DOCX, MD, CSV files (Max 1MB)*")
                     create_embeddings_button = gr.Button("Create Embeddings")
                     embedding_status = gr.Textbox(
                         label="Processing Status",

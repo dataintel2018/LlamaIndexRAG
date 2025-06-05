@@ -1,8 +1,9 @@
 import os
 import shutil
 import datetime
+import pandas as pd
 from typing import List, Optional, Callable
-from llama_index import VectorStoreIndex, SimpleDirectoryReader, ServiceContext
+from llama_index import VectorStoreIndex, SimpleDirectoryReader, ServiceContext, Document
 from llama_index.llms import Ollama
 from llama_index.vector_stores import ChromaVectorStore
 from llama_index.storage.storage_context import StorageContext
@@ -45,7 +46,8 @@ class ChatbotInterface:
             print(f"Connecting to Ollama at: {ollama_host}")
             
             # Initialize embeddings
-            self.embed_model = HuggingFaceEmbedding(model_name="sentence-transformers/all-mpnet-base-v2")
+            #self.embed_model = HuggingFaceEmbedding(model_name="sentence-transformers/all-mpnet-base-v2")
+            self.embed_model = HuggingFaceEmbedding(model_name="sentence-transformers/all-MiniLM-L6-v2", device="cpu")            
             
             # Initialize ChromaDB with a persistent directory
             db_dir = os.path.join(os.getcwd(), "chroma_db")
@@ -142,6 +144,7 @@ class ChatbotInterface:
                 progress_callback(f"Creating embeddings for {doc_count} documents...")
             
             self._load_documents(progress_callback)
+            #self.load_csv("data/test.csv", ["text"], ["metadata"], progress_callback)
             
             if progress_callback:
                 progress_callback("Embedding creation complete!")
@@ -186,7 +189,7 @@ class ChatbotInterface:
 
     def upload_files(self, files, progress_callback=None) -> tuple[list, list]:
         """
-        Upload files to the data directory.
+        Upload files to the data directory. Handles both regular documents and CSV files.
         
         Args:
             files: List of file objects (either FastAPI UploadFile or Gradio file objects)
@@ -203,38 +206,37 @@ class ChatbotInterface:
         
         for file in files:
             try:
-                # Handle FastAPI UploadFile
-                if hasattr(file, "file"):
+                # Get filename based on file type
+                if hasattr(file, "file"):  # FastAPI UploadFile
                     filename = file.filename
-                    file_path = os.path.join("data", filename)
-                    
-                    if not self.validate_file_size(file):
-                        failed_uploads.append((filename, "Exceeds size limit"))
-                        continue
-                        
-                    with open(file_path, "wb") as buffer:
-                        shutil.copyfileobj(file.file, buffer)
-                    
-                    successful_uploads.append(filename)
-                    
-                # Handle Gradio file upload
-                elif hasattr(file, "name"):
+                    is_fastapi = True
+                elif hasattr(file, "name"):  # Gradio file upload
                     filename = os.path.basename(file.name)
+                    is_fastapi = False
+                else:
+                    continue
+
+                # Check file size
+                if not self.validate_file_size(file):
+                    failed_uploads.append((filename, "Exceeds size limit"))
+                    continue
+
+                # Handle duplicate filenames
+                dest_path = os.path.join("data", filename)
+                if os.path.exists(dest_path):
+                    name, ext = os.path.splitext(filename)
+                    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+                    filename = f"{name}_{timestamp}{ext}"
                     dest_path = os.path.join("data", filename)
-                    
-                    if not self.validate_file_size(file):
-                        failed_uploads.append((filename, "Exceeds size limit"))
-                        continue
-                    
-                    # Handle duplicate filenames
-                    if os.path.exists(dest_path):
-                        name, ext = os.path.splitext(filename)
-                        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-                        filename = f"{name}_{timestamp}{ext}"
-                        dest_path = os.path.join("data", filename)
-                    
+
+                # Save the file
+                if is_fastapi:
+                    with open(dest_path, "wb") as buffer:
+                        shutil.copyfileobj(file.file, buffer)
+                else:
                     shutil.copy2(file.name, dest_path)
-                    successful_uploads.append(filename)
+
+                successful_uploads.append(filename)
                 
                 if progress_callback:
                     progress_callback(f"Uploaded: {filename}")
@@ -251,4 +253,82 @@ class ChatbotInterface:
         if progress_callback:
             progress_callback("Upload process complete!")
         
-        return successful_uploads, failed_uploads 
+        return successful_uploads, failed_uploads
+
+    def load_csv(self, csv_path: str, text_columns: List[str], metadata_columns: Optional[List[str]] = None, progress_callback: Optional[Callable[[str], None]] = None) -> bool:
+        """
+        Load a CSV file into the vector store.
+        
+        Args:
+            csv_path: Path to the CSV file
+            text_columns: List of column names whose content should be combined into the document text
+            metadata_columns: Optional list of column names to include as metadata
+            progress_callback: Optional callback function for progress updates
+            
+        Returns:
+            bool: True if successful, False otherwise
+        """
+        try:
+            print("mahesh1")
+            if progress_callback:
+                progress_callback("Loading CSV file...")
+            
+            print("mahesh2")
+            print(csv_path)
+            # Read the CSV file
+            from read_csv import read_csv_file
+            df = read_csv_file(csv_path)
+            #df = pd.read_csv(csv_path)
+            print("mahesh5")
+            
+            if progress_callback:
+                progress_callback(f"Processing {len(df)} rows...")
+            
+            # Create documents from the CSV rows
+            documents = []
+            for idx, row in df.iterrows():
+                print("mahesh6")
+                # Combine specified text columns
+                text_columns = df.columns.tolist()
+                text_content = " ".join(str(row[col]) for col in text_columns if pd.notna(row[col]))
+                print("mahesh7")
+                # Create metadata dictionary if metadata columns are specified
+                metadata = {}
+                print("mahesh8")
+                if metadata_columns:
+                    metadata = {col: str(row[col]) for col in metadata_columns if pd.notna(row[col])}
+                print("mahesh9")
+                # Add row index as metadata
+                metadata['row_index'] = idx
+                
+                # Create document
+                print("mahesh3")
+                doc = Document(text=text_content, metadata=metadata)
+                documents.append(doc)
+                print("mahesh4")
+            
+            if progress_callback:
+                progress_callback("Creating embeddings...")
+            
+            # Add documents to the index
+            self.index = VectorStoreIndex.from_documents(
+                documents,
+                storage_context=self.storage_context,
+                service_context=self.service_context
+            )
+            
+            # Update query engine
+            self.query_engine = self.index.as_query_engine()
+            
+            if progress_callback:
+                progress_callback("CSV processing complete!")
+            
+            return True
+            
+        except Exception as e:
+            raise
+            error_msg = f"Error loading CSV file: {str(e)}"
+            print(error_msg)
+            if progress_callback:
+                progress_callback(error_msg)
+            return False 
