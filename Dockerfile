@@ -1,4 +1,5 @@
-FROM ollama/ollama:latest
+FROM python:3.9-slim
+#FROM ollama/ollama:latest
 
 # Install Python and pip
 RUN apt-get update && apt-get install -y \
@@ -6,6 +7,11 @@ RUN apt-get update && apt-get install -y \
     python3-pip \
     supervisor \
     && rm -rf /var/lib/apt/lists/*
+
+
+RUN curl -fsSL https://ollama.com/install.sh | sh
+RUN ollama pull llama3.2
+RUN ollama serve
 
 # Copy your application
 COPY . /app
@@ -28,4 +34,5 @@ ENV OLLAMA_HOST=http://localhost:11434
 EXPOSE 11434 8000
 
 # Start supervisord
-CMD ["/usr/bin/supervisord"] 
+# Command to run the application
+CMD ["python", "api/index.py"] 
