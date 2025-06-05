@@ -8,6 +8,8 @@ RUN apt-get update && apt-get install -y \
     supervisor \
     && rm -rf /var/lib/apt/lists/*
 
+# Install curl if it's not already present
+RUN apt-get update && apt-get install -y curl
 
 RUN curl -fsSL https://ollama.com/install.sh | sh
 RUN ollama pull llama3.2
