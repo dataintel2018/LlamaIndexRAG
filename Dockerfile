@@ -12,7 +12,10 @@ RUN apt-get update && apt-get install -y \
 RUN apt-get update && apt-get install -y curl
 
 RUN curl -fsSL https://ollama.com/install.sh | sh
-RUN ollama serve &
+
+EXPOSE 11434
+
+#RUN ollama serve &
 RUN ollama pull llama3.2
 
 
